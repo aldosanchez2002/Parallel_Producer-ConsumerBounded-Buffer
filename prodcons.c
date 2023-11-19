@@ -17,6 +17,7 @@ static int  size;     // current num elements
 static int  next_in;  // next insertion index
 static int  next_out; // next remove index
 static int  num_items; // number of items each thread should produce or consume
+
 //Make Lock
 pthread_mutex_t queueLock;
 //Make Condition Variables
@@ -67,11 +68,13 @@ int main(int argc, char **argv) {
 
   //        initialize any synchronization primitives prior to this
   for (i=0; i < num_prods; i++) {
-    pthread_create(&ptids[i], 0, producer, 0);
+    pthread_create(&ptids[i], 0, producer, (void*)&num_items);
+
   }
 
   for (i=0; i < num_cons; i++) {
-    pthread_create(&ctids[i], 0, consumer, 0);
+    
+pthread_create(&ctids[i], 0, consumer, (void*)&num_items);
   }
 
   // wait for threads to exit
@@ -88,20 +91,24 @@ int main(int argc, char **argv) {
   pthread_mutex_destroy(&queueLock);
   pthread_cond_destroy(&queueNotFull);
   pthread_cond_destroy(&queueNotEmpty);
-  print_buffer();
+  //print size of buffer
+  printf("%d\n", size);
   exit(0);
 }
 /****************************************************************/
 void *producer(void *arg){
-  printf("Producer thread %ld\n", pthread_self());
+  int num_items = *(int *) arg;
+  // printf("Producer thread %ld\n", pthread_self());
   // Acquire queue lock
   pthread_mutex_lock(&queueLock);
   // while queue is full, wait on (queue not-full condition, queue_lock)
   while (size == N) {
     pthread_cond_wait(&queueNotFull, &queueLock);
   }
-  // Add item to queue enqueue
-  add_to_queue('a');
+  // Add numitems items to queue enqueue
+  for (int i = 0; i < num_items; i++) {
+    add_to_queue('x');
+  }
   // signal (queue not-empty condition)
   pthread_cond_signal(&queueNotEmpty);
   // release queue lock
@@ -110,15 +117,18 @@ void *producer(void *arg){
 }
 /****************************************************************/
 void *consumer(void *arg){
-  printf("Consumer thread %ld\n", pthread_self());
+  int num_items = *(int *) arg;
+  // printf("Consumer thread %ld\n", pthread_self());
   // Acquire queue lock
   pthread_mutex_lock(&queueLock);
   // While queue is empty, wait on (queue not-empty condition, queue_lock)
   while (size == 0) {
     pthread_cond_wait(&queueNotEmpty, &queueLock);
   }
-  // Remove item from queue enqueue
-  remove_from_queue();
+  // Remove numitems items from queue enqueue
+  for (int i = 0; i < num_items; i++) {
+    remove_from_queue();
+  }
   // Signal (queue not-full condition)
   pthread_cond_signal(&queueNotFull);
   // Release queue lock
