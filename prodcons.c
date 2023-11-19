@@ -99,40 +99,35 @@ pthread_create(&ctids[i], 0, consumer, (void*)&num_items);
 void *producer(void *arg){
   int num_items = *(int *) arg;
   // printf("Producer thread %ld\n", pthread_self());
-  // Acquire queue lock
-  pthread_mutex_lock(&queueLock);
-  // while queue is full, wait on (queue not-full condition, queue_lock)
-  while (size == N) {
-    pthread_cond_wait(&queueNotFull, &queueLock);
-  }
-  // Add numitems items to queue enqueue
   for (int i = 0; i < num_items; i++) {
-    add_to_queue('x');
+    // Acquire queue lock
+    pthread_mutex_lock(&queueLock);
+    // while queue is full, wait on (queue not-full condition, queue_lock)
+    if (size == N) {
+      pthread_cond_wait(&queueNotFull, &queueLock);
+    }
+      add_to_queue('x');
+    pthread_cond_signal(&queueNotEmpty);
+    pthread_mutex_unlock(&queueLock);
   }
-  // signal (queue not-empty condition)
-  pthread_cond_signal(&queueNotEmpty);
-  // release queue lock
-  pthread_mutex_unlock(&queueLock);
   return NULL;
 }
 /****************************************************************/
 void *consumer(void *arg){
   int num_items = *(int *) arg;
   // printf("Consumer thread %ld\n", pthread_self());
-  // Acquire queue lock
-  pthread_mutex_lock(&queueLock);
-  // While queue is empty, wait on (queue not-empty condition, queue_lock)
-  while (size == 0) {
-    pthread_cond_wait(&queueNotEmpty, &queueLock);
-  }
-  // Remove numitems items from queue enqueue
   for (int i = 0; i < num_items; i++) {
-    remove_from_queue();
+    pthread_mutex_lock(&queueLock);
+    // While queue is empty, wait on (queue not-empty condition, queue_lock)
+    if (size == 0) {
+      pthread_cond_wait(&queueNotEmpty, &queueLock);
+    }
+      remove_from_queue();
+    // Signal (queue not-full condition)
+    pthread_cond_signal(&queueNotFull);
+    // Release queue lock
+    pthread_mutex_unlock(&queueLock);
   }
-  // Signal (queue not-full condition)
-  pthread_cond_signal(&queueNotFull);
-  // Release queue lock
-  pthread_mutex_unlock(&queueLock);
   return NULL;
 }
 /****************************************************************/
