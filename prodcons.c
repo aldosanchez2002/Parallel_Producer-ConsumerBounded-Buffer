@@ -17,6 +17,11 @@ static int  size;     // current num elements
 static int  next_in;  // next insertion index
 static int  next_out; // next remove index
 static int  num_items; // number of items each thread should produce or consume
+//Make Lock
+pthread_mutex_t queueLock;
+//Make Condition Variables
+pthread_cond_t queueNotFull;
+pthread_cond_t queueNotEmpty;
 
 // the thread function routines must match the following prototypes:
 void *producer(void *arg);
@@ -53,13 +58,20 @@ int main(int argc, char **argv) {
   next_in = 0;
   next_out = 0;
 
-  // TODO:  create the producer and consumer threads
+  //initialize lock
+  pthread_mutex_init(&queueLock, NULL);
+
+  //initialize condition variables
+  pthread_cond_init(&queueNotFull, NULL);
+  pthread_cond_init(&queueNotEmpty, NULL);
+
   //        initialize any synchronization primitives prior to this
   for (i=0; i < num_prods; i++) {
-
+    pthread_create(&ptids[i], 0, producer, 0);
   }
 
   for (i=0; i < num_cons; i++) {
+    pthread_create(&ctids[i], 0, consumer, 0);
   }
 
   // wait for threads to exit
@@ -73,18 +85,44 @@ int main(int argc, char **argv) {
   free ((char *)buff);
   free ((pthread_t *)ptids);
   free ((pthread_t *)ctids);
+  pthread_mutex_destroy(&queueLock);
+  pthread_cond_destroy(&queueNotFull);
+  pthread_cond_destroy(&queueNotEmpty);
+  print_buffer();
   exit(0);
 }
 /****************************************************************/
 void *producer(void *arg){
-
-  // TODO: implement this  (feel free to change the return value)
+  printf("Producer thread %ld\n", pthread_self());
+  // Acquire queue lock
+  pthread_mutex_lock(&queueLock);
+  // while queue is full, wait on (queue not-full condition, queue_lock)
+  while (size == N) {
+    pthread_cond_wait(&queueNotFull, &queueLock);
+  }
+  // Add item to queue enqueue
+  add_to_queue('a');
+  // signal (queue not-empty condition)
+  pthread_cond_signal(&queueNotEmpty);
+  // release queue lock
+  pthread_mutex_unlock(&queueLock);
   return NULL;
 }
 /****************************************************************/
 void *consumer(void *arg){
-
-  // TODO: implement this
+  printf("Consumer thread %ld\n", pthread_self());
+  // Acquire queue lock
+  pthread_mutex_lock(&queueLock);
+  // While queue is empty, wait on (queue not-empty condition, queue_lock)
+  while (size == 0) {
+    pthread_cond_wait(&queueNotEmpty, &queueLock);
+  }
+  // Remove item from queue enqueue
+  remove_from_queue();
+  // Signal (queue not-full condition)
+  pthread_cond_signal(&queueNotFull);
+  // Release queue lock
+  pthread_mutex_unlock(&queueLock);
   return NULL;
 }
 /****************************************************************/
@@ -92,8 +130,8 @@ void *consumer(void *arg){
 // Add an item to the circular buffer
 // note: this function does no checking that there is enough
 // space to add, the caller is responsible for that
-//   item: the value to add
-//
+// item: the value to add
+
 static void add_to_queue(char item) {
 
   buff[next_in] = item;
