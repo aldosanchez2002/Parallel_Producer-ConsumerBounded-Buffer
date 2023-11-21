@@ -109,7 +109,7 @@ void *producer(void *arg)
     // Acquire queue lock
     pthread_mutex_lock(&queueLock);
     // If queue is full, wait on (queue not-full condition, queue_lock)
-    if (size == N)
+    while (size == N)
     {
       pthread_cond_wait(&queueNotFull, &queueLock);
     }
@@ -128,7 +128,7 @@ void *consumer(void *arg)
   {
     pthread_mutex_lock(&queueLock);
     // If queue is empty, wait on (queue not-empty condition, queue_lock)
-    if (size == 0)
+    while (size == 0)
     {
       pthread_cond_wait(&queueNotEmpty, &queueLock);
     }
